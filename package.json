@@ -11,5 +11,13 @@
   "devDependencies": {
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "fs-extra": "^11.3.0",
+    "gif-frames": "^1.0.1",
+    "gm": "^1.25.0",
+    "inquirer": "^12.11.0",
+    "pnpm": "^10.20.0",
+    "sharp": "^0.33.5"
   }
 }
