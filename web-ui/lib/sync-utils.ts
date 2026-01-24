@@ -82,7 +82,22 @@ export async function* syncFiles(
           if (writeStream.destroyed) break; // Check if write stream was destroyed externally (e.g. abort)
           const canWrite = writeStream.write(chunk);
           if (!canWrite) {
-            await new Promise<void>(resolve => writeStream!.once('drain', () => resolve()));
+            await new Promise<void>((resolve, reject) => {
+              const onDrain = () => {
+                cleanup();
+                resolve();
+              };
+              const onError = (err: Error) => {
+                cleanup();
+                reject(err);
+              };
+              const cleanup = () => {
+                writeStream?.removeListener('drain', onDrain);
+                writeStream?.removeListener('error', onError);
+              };
+              writeStream!.once('drain', onDrain);
+              writeStream!.once('error', onError);
+            });
           }
   
           transferred += chunk.length;
@@ -141,6 +156,11 @@ export async function* syncFiles(
     } catch (err) {
       console.error(`Error syncing ${relPath}:`, err);
       
+      // Check for Disk Full Error
+      if ((err as any).code === 'ENOSPC') {
+        throw new Error(`目标磁盘空间已满，无法继续同步`);
+      }
+
       // Check if source base still exists (device might be disconnected)
       try {
           await stat(sourceBase);
