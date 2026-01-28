@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { PhotoSlider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
 import { Button } from '@/components/ui/button';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface PreviewFile {
   name: string;
@@ -15,9 +16,21 @@ interface ImagePreviewProps {
   onPrevious?: () => void;
   onNext?: () => void;
   footer?: React.ReactNode;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: () => void;
 }
 
-export function ImagePreview({ file, onClose, onPrevious, onNext, footer }: ImagePreviewProps) {
+export function ImagePreview({ 
+  file, 
+  onClose, 
+  onPrevious, 
+  onNext, 
+  footer,
+  selectionMode,
+  isSelected,
+  onToggleSelection
+}: ImagePreviewProps) {
   const [lastImages, setLastImages] = useState<any[]>([]);
 
   useEffect(() => {
@@ -45,12 +58,15 @@ export function ImagePreview({ file, onClose, onPrevious, onNext, footer }: Imag
       } else if (e.code === 'ArrowRight' && onNext) {
         e.preventDefault();
         onNext();
+      } else if (e.code === 'KeyF' && selectionMode && onToggleSelection) {
+        e.preventDefault();
+        onToggleSelection();
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [file, onClose, onPrevious, onNext]);
+  }, [file, onClose, onPrevious, onNext, selectionMode, onToggleSelection]);
 
   // if (!file) return null;
 
@@ -76,6 +92,26 @@ export function ImagePreview({ file, onClose, onPrevious, onNext, footer }: Imag
                <ChevronLeft size={160} strokeWidth={1} />
              </button>
            )}
+
+           {selectionMode && onToggleSelection && (
+             <div className="absolute right-[10%] top-1/2 -translate-y-[180%] w-48 flex justify-center z-[70] pointer-events-auto">
+               <button
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   onToggleSelection();
+                 }}
+                 className={cn(
+                   "w-24 h-24 rounded-full border-2 transition-all flex items-center justify-center focus:outline-none",
+                   isSelected 
+                     ? "bg-primary border-primary text-primary-foreground scale-110 shadow-lg" 
+                     : "bg-black/20 border-white/40 text-transparent hover:border-white hover:bg-black/40"
+                 )}
+               >
+                 <Check size={48} strokeWidth={3} className={cn(isSelected ? "opacity-100" : "opacity-0")} />
+               </button>
+             </div>
+           )}
+
            {onNext && (
              <button
                className="absolute right-[10%] top-1/2 -translate-y-1/2 pointer-events-auto text-white/40 hover:text-white hover:bg-white/10 rounded-full w-48 h-48 transition-all flex items-center justify-center z-[60] focus:outline-none"

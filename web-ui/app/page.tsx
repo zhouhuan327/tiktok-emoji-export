@@ -36,7 +36,12 @@ export default function Home() {
 
   return (
     <Tabs defaultValue="sd-sync" className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden">
-      <Toaster position="top-center" />
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+          className: "opacity-80 pointer-events-none select-none backdrop-blur-md bg-white/70 dark:bg-black/70 border-white/20",
+        }}
+      />
       
       {/* Top Navigation Bar */}
       <div className="border-b bg-card px-6 py-3 flex items-center justify-between shadow-sm shrink-0 z-50">

@@ -178,6 +178,7 @@ export default function LocalPreviewPage() {
   const currentGroupIndex = previewFile 
     ? groups.findIndex(g => g.files.some(f => f.path === previewFile.path)) 
     : -1;
+  const currentGroup = currentGroupIndex !== -1 ? groups[currentGroupIndex] : null;
   
   const hasPrevious = currentGroupIndex > 0;
   const hasNext = currentGroupIndex < groups.length - 1;
@@ -364,26 +365,26 @@ export default function LocalPreviewPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full gap-4 overflow-hidden">
         {/* Top Bar with Input */}
-        <Card className="p-4 flex gap-4 items-center shrink-0 border-0 shadow-none bg-transparent px-0">
-            <div className="flex-1 flex gap-2">
-            <Input 
-                placeholder="输入绝对路径 (例如 /Users/username/Photos)" 
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadFiles(path)}
-                className="bg-card"
-            />
-            <Button variant="secondary" onClick={() => setIsBrowserOpen(true)} title="选择文件夹">
-               <FolderOpen className="mr-2" size={16} />
-               选择
-            </Button>
-            <Button onClick={() => loadFiles(path)} disabled={loading}>
-                {loading ? <Loader2 className="animate-spin mr-2" /> : <RefreshCw className="mr-2" />}
-                加载
-            </Button>
+        <Card className="p-4 flex gap-3 items-center shrink-0 border-0 shadow-none bg-transparent px-0">
+            <div className="flex items-center gap-2">
+              <Input 
+                  placeholder="输入绝对路径 (例如 /Users/username/Photos)" 
+                  value={path}
+                  onChange={(e) => setPath(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && loadFiles(path)}
+                  className="bg-card w-80 lg:w-[450px]"
+              />
+              <Button variant="secondary" onClick={() => setIsBrowserOpen(true)} title="选择文件夹">
+                 <FolderOpen className="mr-2" size={16} />
+                 选择
+              </Button>
+              <Button onClick={() => loadFiles(path)} disabled={loading}>
+                  {loading ? <Loader2 className="animate-spin mr-2" /> : <RefreshCw className="mr-2" />}
+                  加载
+              </Button>
             </div>
 
-            <div className="flex items-center gap-2 px-2 border-l pl-4">
+            <div className="flex items-center gap-2 px-3 border-l ml-1">
               <Switch 
                 id="selection-mode" 
                 checked={selectionMode} 
@@ -490,6 +491,9 @@ export default function LocalPreviewPage() {
           onPrevious={hasPrevious ? handlePrevious : undefined}
           onNext={hasNext ? handleNext : undefined}
           footer={previewFooter}
+          selectionMode={selectionMode}
+          isSelected={currentGroup ? selectedGroups.has(currentGroup.id) : false}
+          onToggleSelection={currentGroup ? () => handleToggleSelection(currentGroup.id) : undefined}
         />
       )}
       {/* File Browser Dialog */}
