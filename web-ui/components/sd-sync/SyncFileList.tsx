@@ -125,7 +125,6 @@ export function SyncFileList({ files, sourcePath, totalSize, onPreview }: SyncFi
                     name: group.displayFile.split('/').pop()!, 
                     path: sourcePath + '/' + group.displayFile 
                 })}
-                onMouseLeave={() => setHoveredFile(null)}
                 onClick={() => onPreview({ 
                     name: group.displayFile.split('/').pop()!, 
                     path: sourcePath + '/' + group.displayFile 

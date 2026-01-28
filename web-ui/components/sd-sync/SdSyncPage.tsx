@@ -295,7 +295,7 @@ export default function SdSyncPage() {
                      files={scanResult.missingFiles}
                      sourcePath={scanResult.sourcePath}
                      totalSize={scanResult.totalMissingSize}
-                     onPreview={setPreviewFile}
+                     onPreview={previewFile ? () => {} : setPreviewFile}
                    />
                 ) : (
                    !syncing && !syncComplete && (

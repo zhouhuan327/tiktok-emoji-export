@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Layers, Play } from 'lucide-react';
+import { Layers, Play, Check } from 'lucide-react';
 import { FileThumbnail } from '@/components/sd-sync/FileThumbnail';
 import { cn } from '@/lib/utils';
 import { MediaFile, groupMediaFiles } from '@/lib/media-utils';
@@ -13,9 +13,20 @@ interface MediaGridProps {
   onPreview?: (file: MediaFile) => void;
   className?: string;
   emptyMessage?: React.ReactNode;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelection?: (id: string) => void;
 }
 
-export function MediaGrid({ files, onPreview, className, emptyMessage }: MediaGridProps) {
+export function MediaGrid({ 
+  files, 
+  onPreview, 
+  className, 
+  emptyMessage,
+  selectionMode = false,
+  selectedIds = new Set(),
+  onToggleSelection
+}: MediaGridProps) {
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
 
   const groups = useMemo(() => groupMediaFiles(files), [files]);
@@ -51,17 +62,40 @@ export function MediaGrid({ files, onPreview, className, emptyMessage }: MediaGr
 
   return (
     <div className={cn("grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4", className)}>
-        {groups.map((group) => (
-        <div 
-            key={group.id} 
-            className="aspect-square cursor-pointer hover:ring-2 ring-primary rounded-md overflow-hidden transition-all bg-card border relative group"
-            onClick={() => onPreview?.(group.displayFile)}
-            onMouseEnter={() => setHoveredGroup(group.id)}
-            onMouseLeave={() => setHoveredGroup(null)}
-        >
-            <FileThumbnail path={group.displayFile.path} name={group.displayFile.name} />
-            
-            {/* Badges */}
+        {groups.map((group) => {
+          const isSelected = selectedIds.has(group.id);
+          
+          return (
+            <div 
+                key={group.id} 
+                className={cn(
+                  "aspect-square cursor-pointer hover:ring-2 rounded-md overflow-hidden transition-all bg-card border relative group",
+                  isSelected ? "ring-2 ring-primary border-primary" : "ring-primary"
+                )}
+                onClick={() => {
+                  if (selectionMode && onToggleSelection) {
+                    onToggleSelection(group.id);
+                  } else {
+                    onPreview?.(group.displayFile);
+                  }
+                }}
+                onMouseEnter={() => setHoveredGroup(group.id)}
+            >
+                <FileThumbnail path={group.displayFile.path} name={group.displayFile.name} />
+                
+                {/* Selection Indicator */}
+                {selectionMode && (
+                  <div className={cn(
+                    "absolute top-2 left-2 w-6 h-6 rounded-full border-2 flex items-center justify-center z-20 transition-all",
+                    isSelected 
+                      ? "bg-primary border-primary text-primary-foreground shadow-sm" 
+                      : "bg-black/20 border-white/50 text-transparent hover:border-white"
+                  )}>
+                    <Check size={14} strokeWidth={3} />
+                  </div>
+                )}
+                
+                {/* Badges */}
             <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
                 {group.isMerged && (
                     <Badge variant="secondary" className="h-5 px-1.5 gap-1 bg-white/90 text-black backdrop-blur-sm shadow-sm border-0">
@@ -92,9 +126,10 @@ export function MediaGrid({ files, onPreview, className, emptyMessage }: MediaGr
                         </span>
                     )}
                 </div>
+              </div>
             </div>
-        </div>
-        ))}
+          );
+        })}
     </div>
   );
 }

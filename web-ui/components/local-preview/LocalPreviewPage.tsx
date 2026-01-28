@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { FolderOpen, Loader2, Plus, Trash2, Bookmark as BookmarkIcon, RefreshCw } from 'lucide-react';
+import { FolderOpen, Loader2, Plus, Trash2, Bookmark as BookmarkIcon, RefreshCw, Check, Download, MousePointer2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FileThumbnail } from '@/components/sd-sync/FileThumbnail';
 import { ImagePreview } from '@/components/sd-sync/ImagePreview';
@@ -14,6 +14,7 @@ import { MediaGrid } from '@/components/shared/MediaGrid';
 import { groupMediaFiles } from '@/lib/media-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -45,6 +46,12 @@ export default function LocalPreviewPage() {
   const [loading, setLoading] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileInfo | null>(null);
   const [isBrowserOpen, setIsBrowserOpen] = useState(false);
+  
+  // Selection & Export State
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [isExportBrowserOpen, setIsExportBrowserOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Bookmarks State
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -188,6 +195,62 @@ export default function LocalPreviewPage() {
     }
   };
 
+  const handleToggleSelection = (id: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedGroups(new Set(groups.map(g => g.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedGroups(new Set());
+  };
+
+  const handleExport = async (targetPath: string) => {
+    if (selectedGroups.size === 0) return;
+    
+    setExporting(true);
+    const toastId = toast.loading('正在导出文件...');
+    
+    try {
+      const groupsToExport = groups.filter(g => selectedGroups.has(g.id));
+      const filesToExport = groupsToExport.flatMap(g => g.files.map(f => f.name));
+      
+      const res = await fetch('/api/fs/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePath: path,
+          targetPath,
+          files: filesToExport
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      toast.success(`成功导出 ${data.count} 个文件`, { id: toastId });
+      setSelectionMode(false);
+      setSelectedGroups(new Set());
+    } catch (err) {
+      console.error(err);
+      toast.error('导出失败: ' + (err as Error).message, { id: toastId });
+    } finally {
+      setExporting(false);
+      setIsExportBrowserOpen(false);
+    }
+  };
+
   return (
     <div className="flex h-full gap-6">
       {/* Sidebar - Bookmarks */}
@@ -262,8 +325,8 @@ export default function LocalPreviewPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full gap-4 overflow-hidden">
         {/* Top Bar with Input */}
-        <Card className="p-4 flex gap-4 items-center shrink-0 border-0 shadow-none bg-transparent px-0">
-            <div className="flex-1 flex gap-2">
+        <Card className="p-4 flex flex-col gap-4 shrink-0 border-0 shadow-none bg-transparent px-0">
+            <div className="flex gap-2">
             <Input 
                 placeholder="输入绝对路径 (例如 /Users/username/Photos)" 
                 value={path}
@@ -280,13 +343,63 @@ export default function LocalPreviewPage() {
                 加载
             </Button>
             </div>
+
+            {/* Selection Toolbar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    id="selection-mode" 
+                    checked={selectionMode} 
+                    onCheckedChange={(checked) => {
+                      setSelectionMode(checked);
+                      if (!checked) setSelectedGroups(new Set());
+                    }} 
+                  />
+                  <Label htmlFor="selection-mode" className="cursor-pointer font-medium flex items-center gap-2">
+                    <MousePointer2 size={14} />
+                    开启多选
+                  </Label>
+                </div>
+
+                {selectionMode && (
+                  <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                    <Separator orientation="vertical" className="h-4 mx-1" />
+                    <span className="text-sm font-medium">
+                      已选中 <span className="text-primary">{selectedGroups.size}</span> 个项目
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={handleSelectAll} className="h-8 px-2 text-xs">
+                      全选
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleClearSelection} className="h-8 px-2 text-xs">
+                      取消
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {selectionMode && (
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsExportBrowserOpen(true)} 
+                  disabled={selectedGroups.size === 0 || exporting}
+                  className="gap-2"
+                >
+                  {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  导出到...
+                </Button>
+              )}
+            </div>
         </Card>
 
         {/* File Grid */}
         <div className="flex-1 overflow-y-auto min-h-0 bg-background/50 rounded-lg border p-4">
             <MediaGrid 
               files={files} 
-              onPreview={(file) => setPreviewFile(file as FileInfo)} 
+              onPreview={previewFile ? undefined : (file) => setPreviewFile(file as FileInfo)} 
+              selectionMode={selectionMode}
+              selectedIds={selectedGroups}
+              onToggleSelection={handleToggleSelection}
               emptyMessage={
                 <div className="flex flex-col items-center justify-center opacity-50">
                    <FolderOpen size={48} className="mb-4" />
@@ -371,6 +484,15 @@ export default function LocalPreviewPage() {
           loadFiles(selectedPath);
         }}
         initialPath={path}
+      />
+      {/* Export Target Browser Dialog */}
+      <FileBrowserDialog 
+        open={isExportBrowserOpen} 
+        onOpenChange={setIsExportBrowserOpen}
+        onSelect={(selectedPath) => {
+          handleExport(selectedPath);
+        }}
+        title="选择导出目标目录"
       />
     </div>
   );
