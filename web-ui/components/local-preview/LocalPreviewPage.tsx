@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { ImagePreview } from '@/components/sd-sync/ImagePreview';
 import { VideoPreview } from '@/components/sd-sync/VideoPreview';
 import { FileBrowserDialog } from '@/components/ui/file-browser-dialog';
 import { MediaGrid } from '@/components/shared/MediaGrid';
+import { groupMediaFiles } from '@/lib/media-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -166,20 +167,24 @@ export default function LocalPreviewPage() {
     setFiles(prev => prev.map(f => f.path === previewFile.path ? newFileInfo : f));
   };
 
-  // Navigation Logic
-  const currentIndex = previewFile ? files.findIndex(f => f.path === previewFile.path) : -1;
-  const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex < files.length - 1;
+  // Navigation Logic based on groups to handle JPG+RAW merging
+  const groups = useMemo(() => groupMediaFiles(files), [files]);
+  const currentGroupIndex = previewFile 
+    ? groups.findIndex(g => g.files.some(f => f.path === previewFile.path)) 
+    : -1;
+  
+  const hasPrevious = currentGroupIndex > 0;
+  const hasNext = currentGroupIndex < groups.length - 1;
 
   const handlePrevious = () => {
     if (hasPrevious) {
-      setPreviewFile(files[currentIndex - 1]);
+      setPreviewFile(groups[currentGroupIndex - 1].displayFile as FileInfo);
     }
   };
 
   const handleNext = () => {
     if (hasNext) {
-      setPreviewFile(files[currentIndex + 1]);
+      setPreviewFile(groups[currentGroupIndex + 1].displayFile as FileInfo);
     }
   };
 
@@ -346,6 +351,8 @@ export default function LocalPreviewPage() {
         <ImagePreview 
           file={previewFile} 
           onClose={() => setPreviewFile(null)}
+          onPrevious={hasPrevious ? handlePrevious : undefined}
+          onNext={hasNext ? handleNext : undefined}
           footer={
              previewFile && (
                 <div className="text-center text-zinc-400 mt-2">

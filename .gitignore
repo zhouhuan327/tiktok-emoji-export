@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Trae
+.trae/
+
+# Temp test files
+test-sync.ts

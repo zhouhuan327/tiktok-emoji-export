@@ -97,20 +97,16 @@ export class SyncManager {
         
         // Check for cancellation
         if (this.currentJob.abortController.signal.aborted) {
-          this.currentJob.status = 'idle'; // Or cancelled?
-          // The syncFiles utility handles cleanup on abort if we throw/return? 
-          // Actually syncFiles doesn't take a signal, so we rely on breaking the loop.
-          // And we might need to manually trigger cleanup if syncFiles doesn't handle "break" well?
-          // Looking at syncFiles implementation: "if (writeStream.destroyed) break".
-          // We can't easily destroy the stream inside syncFiles from here.
-          // BUT, syncFiles yields regularly. If we stop iterating, it pauses.
-          // To strictly cleanup, syncFiles might need to know.
-          // For now, let's just break.
+          // Break the loop, the catch block or final cleanup will handle the rest
           break; 
         }
 
         this.currentJob.progress = progress;
         
+        if (progress.type === 'error') {
+            console.error('Sync Error:', progress.error, 'File:', progress.file);
+        }
+
         if (progress.type === 'file-complete') {
             this.currentJob.history.push(progress);
         }
@@ -125,6 +121,7 @@ export class SyncManager {
         if (error.message === 'Aborted' || error.name === 'AbortError') {
             this.currentJob.status = 'idle'; // Reset to idle or showing 'cancelled' state
         } else {
+            console.error('Sync Job Failed:', error);
             this.currentJob.status = 'error';
             this.currentJob.error = error.message;
         }
@@ -138,7 +135,9 @@ export class SyncManager {
       
       // Wait for the loop to finish (cleanup)
       if (this.currentJob.loopPromise) {
-          await this.currentJob.loopPromise;
+          // Add timeout to prevent hanging if loop is stuck
+          const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 2000));
+          await Promise.race([this.currentJob.loopPromise, timeoutPromise]);
       }
 
       this.currentJob.status = 'idle'; // Or 'cancelled'

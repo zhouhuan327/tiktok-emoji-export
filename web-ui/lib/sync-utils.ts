@@ -15,7 +15,7 @@ export type SyncProgress = {
   error?: string;
 };
 
-const HIGH_WATER_MARK = 16 * 1024 * 1024; // 16MB
+const HIGH_WATER_MARK = 64 * 1024; // 64KB
 
 export async function* syncFiles(
   sourceBase: string,
@@ -80,9 +80,13 @@ export async function* syncFiles(
       try {
         for await (const chunk of readStream) {
           if (writeStream.destroyed) break; // Check if write stream was destroyed externally (e.g. abort)
+          if (signal?.aborted) throw new Error('Aborted');
+
           const canWrite = writeStream.write(chunk);
           if (!canWrite) {
             await new Promise<void>((resolve, reject) => {
+              let timeoutId: NodeJS.Timeout;
+
               const onDrain = () => {
                 cleanup();
                 resolve();
@@ -91,12 +95,20 @@ export async function* syncFiles(
                 cleanup();
                 reject(err);
               };
+              const onTimeout = () => {
+                cleanup();
+                reject(new Error('Write stream drain timeout'));
+              };
+
               const cleanup = () => {
                 writeStream?.removeListener('drain', onDrain);
                 writeStream?.removeListener('error', onError);
+                if (timeoutId) clearTimeout(timeoutId);
               };
+
               writeStream!.once('drain', onDrain);
               writeStream!.once('error', onError);
+              timeoutId = setTimeout(onTimeout, 30000); // 30s timeout
             });
           }
   
@@ -126,8 +138,8 @@ export async function* syncFiles(
         }
       } catch (streamErr) {
           // If aborted, cleanup target file
-          if ((streamErr as any).code === 'ABORT_ERR' || writeStream.destroyed) {
-              await unlink(targetPath).catch(() => {});
+          if ((streamErr as any).code === 'ABORT_ERR' || writeStream.destroyed || signal?.aborted || (streamErr as Error).message === 'Aborted') {
+              await unlink(targetPath).catch((err) => console.error(`Failed to cleanup aborted file ${targetPath}:`, err));
               throw new Error('Aborted');
           }
           throw streamErr;
@@ -138,7 +150,12 @@ export async function* syncFiles(
   
       // Preserve mtime
       await new Promise<void>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+             reject(new Error('Utimes timeout'));
+        }, 10000);
+
         utimes(targetPath, originalMtime, originalMtime, (err) => {
+          clearTimeout(timeoutId);
           if (err) reject(err);
           else resolve();
         });

@@ -6,5 +6,9 @@
   {
     "name": "照片",
     "path": "Volumes/T7/相机/照片"
+  },
+  {
+    "name": "100MSDCF",
+    "path": "/Volumes/zve1/DCIM/100MSDCF"
   }
 ]

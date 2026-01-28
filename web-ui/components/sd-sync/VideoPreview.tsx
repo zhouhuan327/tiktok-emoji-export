@@ -153,31 +153,27 @@ export function VideoPreview({ file, onClose, footer, onRename, onPrevious, onNe
 
              {/* Navigation Buttons */}
              {onPrevious && (
-               <Button
-                 variant="ghost"
-                 size="icon"
-                 className="absolute left-[20%] top-1/2 -translate-y-1/2 text-white/50 hover:text-white hover:bg-black/60 rounded-full w-20 h-20 opacity-0 group-hover:opacity-100 transition-all z-10"
+               <button
+                 className="absolute left-[10%] top-1/2 -translate-y-1/2 text-white/40 hover:text-white hover:bg-white/10 rounded-full w-48 h-48 transition-all z-[60] flex items-center justify-center focus:outline-none"
                  onClick={(e) => {
                    e.stopPropagation();
                    onPrevious();
                  }}
                >
-                 <ChevronLeft size={64} />
-               </Button>
+                 <ChevronLeft size={160} strokeWidth={1} />
+               </button>
              )}
              
              {onNext && (
-               <Button
-                 variant="ghost"
-                 size="icon"
-                 className="absolute right-[20%] top-1/2 -translate-y-1/2 text-white/50 hover:text-white hover:bg-black/60 rounded-full w-20 h-20 opacity-0 group-hover:opacity-100 transition-all z-10"
+               <button
+                 className="absolute right-[10%] top-1/2 -translate-y-1/2 text-white/40 hover:text-white hover:bg-white/10 rounded-full w-48 h-48 transition-all z-[60] flex items-center justify-center focus:outline-none"
                  onClick={(e) => {
                    e.stopPropagation();
                    onNext();
                  }}
                >
-                 <ChevronRight size={64} />
-               </Button>
+                 <ChevronRight size={160} strokeWidth={1} />
+               </button>
              )}
          </div>
          
