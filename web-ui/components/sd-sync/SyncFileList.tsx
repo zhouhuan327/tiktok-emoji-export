@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatBytes } from '@/lib/utils';
@@ -21,7 +21,7 @@ interface FileGroup {
   files: string[]; // All files in this group
 }
 
-export function SyncFileList({ files, sourcePath, totalSize, onPreview }: SyncFileListProps) {
+export const SyncFileList = memo(({ files, sourcePath, totalSize, onPreview }: SyncFileListProps) => {
   const [hoveredFile, setHoveredFile] = useState<{name: string, path: string} | null>(null);
 
   // Handle Space key to open preview
@@ -34,6 +34,10 @@ export function SyncFileList({ files, sourcePath, totalSize, onPreview }: SyncFi
          const isInput = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
          
          if (!isInput) {
+             // If a dialog is already open, don't trigger preview
+             if (document.querySelector('[role="dialog"]') || document.querySelector('.PhotoView-Slider')) {
+                 return;
+             }
              e.preventDefault();
              onPreview(hoveredFile);
          }
@@ -155,4 +159,4 @@ export function SyncFileList({ files, sourcePath, totalSize, onPreview }: SyncFi
       </div>
     </div>
   );
-}
+});

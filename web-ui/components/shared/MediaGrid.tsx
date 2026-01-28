@@ -1,15 +1,15 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Layers, Play, Check } from 'lucide-react';
 import { FileThumbnail } from '@/components/sd-sync/FileThumbnail';
 import { cn } from '@/lib/utils';
-import { MediaFile, groupMediaFiles } from '@/lib/media-utils';
+import { MediaFile, MediaGroup } from '@/lib/media-utils';
 
 interface MediaGridProps {
-  files: MediaFile[];
+  groups: MediaGroup[];
   onPreview?: (file: MediaFile) => void;
   className?: string;
   emptyMessage?: React.ReactNode;
@@ -18,18 +18,18 @@ interface MediaGridProps {
   onToggleSelection?: (id: string) => void;
 }
 
-export function MediaGrid({ 
-  files, 
+const EMPTY_SET = new Set<string>();
+
+export const MediaGrid = memo(({ 
+  groups, 
   onPreview, 
   className, 
   emptyMessage,
   selectionMode = false,
-  selectedIds = new Set(),
+  selectedIds = EMPTY_SET,
   onToggleSelection
-}: MediaGridProps) {
+}: MediaGridProps) => {
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
-
-  const groups = useMemo(() => groupMediaFiles(files), [files]);
 
   // Handle Space key to open preview
   useEffect(() => {
@@ -39,6 +39,10 @@ export function MediaGrid({
          const isInput = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
          
          if (!isInput) {
+             // If a dialog is already open, don't trigger preview
+             if (document.querySelector('[role="dialog"]') || document.querySelector('.PhotoView-Slider')) {
+                 return;
+             }
              e.preventDefault();
              const group = groups.find(g => g.id === hoveredGroup);
              if (group) {
@@ -52,7 +56,7 @@ export function MediaGrid({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hoveredGroup, onPreview, groups]);
 
-  if (!files || files.length === 0) {
+  if (!groups || groups.length === 0) {
       return (
         <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
             {emptyMessage || <p>暂无文件</p>}
@@ -69,7 +73,7 @@ export function MediaGrid({
             <div 
                 key={group.id} 
                 className={cn(
-                  "aspect-square cursor-pointer hover:ring-2 rounded-md overflow-hidden transition-all bg-card border relative group",
+                  "aspect-square cursor-pointer hover:ring-2 rounded-md overflow-hidden bg-card border relative group",
                   isSelected ? "ring-2 ring-primary border-primary" : "ring-primary"
                 )}
                 onClick={() => {
@@ -132,4 +136,4 @@ export function MediaGrid({
         })}
     </div>
   );
-}
+});

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { FolderOpen, Loader2, Plus, Trash2, Bookmark as BookmarkIcon, RefreshCw, Check, Download, MousePointer2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { FolderOpen, Loader2, Plus, Trash2, RefreshCw, Download, MousePointer2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { FileThumbnail } from '@/components/sd-sync/FileThumbnail';
 import { ImagePreview } from '@/components/sd-sync/ImagePreview';
 import { VideoPreview } from '@/components/sd-sync/VideoPreview';
 import { FileBrowserDialog } from '@/components/ui/file-browser-dialog';
@@ -183,19 +182,26 @@ export default function LocalPreviewPage() {
   const hasPrevious = currentGroupIndex > 0;
   const hasNext = currentGroupIndex < groups.length - 1;
 
-  const handlePrevious = () => {
-    if (hasPrevious) {
-      setPreviewFile(groups[currentGroupIndex - 1].displayFile as FileInfo);
-    }
-  };
-
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (hasNext) {
       setPreviewFile(groups[currentGroupIndex + 1].displayFile as FileInfo);
     }
-  };
+  }, [hasNext, currentGroupIndex, groups]);
 
-  const handleToggleSelection = (id: string) => {
+  const handlePrevious = useCallback(() => {
+    if (hasPrevious) {
+      setPreviewFile(groups[currentGroupIndex - 1].displayFile as FileInfo);
+    }
+  }, [hasPrevious, currentGroupIndex, groups]);
+
+  const handlePreview = useCallback((file: any) => {
+    setPreviewFile(prev => {
+      if (prev) return prev;
+      return file;
+    });
+  }, []);
+
+  const handleToggleSelection = useCallback((id: string) => {
     setSelectedGroups(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -205,7 +211,7 @@ export default function LocalPreviewPage() {
       }
       return next;
     });
-  };
+  }, []);
 
   const handleSelectAll = () => {
     setSelectedGroups(new Set(groups.map(g => g.id)));
@@ -251,82 +257,115 @@ export default function LocalPreviewPage() {
     }
   };
 
-  return (
-    <div className="flex h-full gap-6">
-      {/* Sidebar - Bookmarks */}
-      <Card className="w-80 flex flex-col h-full border-0 shadow-none bg-transparent">
-        <div className="flex items-center justify-between mb-4 px-1">
-           <h2 className="text-lg font-semibold tracking-tight">常用路径</h2>
-           <div className="flex items-center gap-1">
-             <Button variant="ghost" size="icon" onClick={fetchBookmarks} title="刷新">
-               <RefreshCw size={16} />
-             </Button>
-             <Button 
-               variant="ghost" 
-               size="icon"
-               onClick={() => {
-                 setNewBookmark({ name: '', path: path || '' }); // Pre-fill path if available
-                 setIsAddingBookmark(true);
-               }}
-               title="添加路径"
+  const emptyMessage = useMemo(() => (
+    <div className="flex flex-col items-center justify-center opacity-50">
+       <FolderOpen size={48} className="mb-4" />
+       <p>选择左侧路径或在上方输入路径查看文件</p>
+    </div>
+  ), []);
+
+  const previewFooter = useMemo(() => {
+    if (!previewFile) return null;
+    return (
+      <div className="text-center text-zinc-400 mt-2">
+        {new Date(previewFile.mtime).toLocaleString()} • {(previewFile.size / 1024 / 1024).toFixed(2)} MB
+      </div>
+    );
+  }, [previewFile?.path, previewFile?.mtime, previewFile?.size]); // Use primitive values for stability
+
+  const memoizedMediaGrid = useMemo(() => {
+    return (
+      <MediaGrid 
+        groups={groups} 
+        onPreview={handlePreview} 
+        selectionMode={selectionMode}
+        selectedIds={selectedGroups}
+        onToggleSelection={handleToggleSelection}
+        emptyMessage={emptyMessage}
+      />
+    );
+  }, [groups, handlePreview, selectionMode, selectedGroups, handleToggleSelection, emptyMessage]);
+
+  const memoizedSidebar = useMemo(() => (
+    <Card className="w-80 flex flex-col h-full border-0 shadow-none bg-transparent">
+      <div className="flex items-center justify-between mb-4 px-1">
+         <h2 className="text-lg font-semibold tracking-tight">常用路径</h2>
+         <div className="flex items-center gap-1">
+           <Button variant="ghost" size="icon" onClick={fetchBookmarks} title="刷新">
+             <RefreshCw size={16} />
+           </Button>
+           <Button 
+             variant="ghost" 
+             size="icon"
+             onClick={() => {
+               setNewBookmark({ name: '', path: path || '' }); // Pre-fill path if available
+               setIsAddingBookmark(true);
+             }}
+             title="添加路径"
+           >
+             <Plus size={16} />
+           </Button>
+         </div>
+      </div>
+      
+      <ScrollArea className="flex-1 -mx-1 px-1">
+         <div className="space-y-2">
+           {bookmarks.map(bookmark => (
+             <div 
+               key={bookmark.name}
+               onClick={() => handleSelectBookmark(bookmark)}
+               className={cn(
+                 "group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border",
+                 selectedBookmark === bookmark.name 
+                   ? "bg-primary/5 border-primary/20 shadow-sm" 
+                   : "bg-card border-transparent hover:bg-accent/50 hover:border-border"
+               )}
              >
-               <Plus size={16} />
-             </Button>
-           </div>
-        </div>
-        
-        <ScrollArea className="flex-1 -mx-1 px-1">
-           <div className="space-y-2">
-             {bookmarks.map(bookmark => (
-               <div 
-                 key={bookmark.name}
-                 onClick={() => handleSelectBookmark(bookmark)}
-                 className={cn(
-                   "group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border",
-                   selectedBookmark === bookmark.name 
-                     ? "bg-primary/5 border-primary/20 shadow-sm" 
-                     : "bg-card border-transparent hover:bg-accent/50 hover:border-border"
-                 )}
-               >
-                 <div className="flex items-center gap-3 min-w-0">
-                   <div className="bg-primary/10 p-2 rounded-md text-primary">
-                     <FolderOpen size={16} />
+               <div className="flex items-center gap-3 min-w-0">
+                 <div className="bg-primary/10 p-2 rounded-md text-primary">
+                   <FolderOpen size={16} />
+                 </div>
+                 <div className="min-w-0">
+                   <div className={cn("font-medium truncate text-sm", selectedBookmark === bookmark.name ? "text-primary" : "text-foreground")}>
+                      {bookmark.name}
                    </div>
-                   <div className="min-w-0">
-                     <div className={cn("font-medium truncate text-sm", selectedBookmark === bookmark.name ? "text-primary" : "text-foreground")}>
-                        {bookmark.name}
-                     </div>
-                     <div className="text-[10px] text-muted-foreground truncate font-mono" title={bookmark.path}>
-                        {bookmark.path}
-                     </div>
+                   <div className="text-[10px] text-muted-foreground truncate font-mono" title={bookmark.path}>
+                      {bookmark.path}
                    </div>
                  </div>
-                 
-                 <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    onClick={(e) => handleDeleteBookmark(bookmark.name, e)}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
                </div>
-             ))}
-             
-             {bookmarks.length === 0 && (
-               <div className="text-center py-12 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
-                 点击右上角 "+" 添加常用路径
-               </div>
-             )}
-           </div>
-        </ScrollArea>
-      </Card>
+               
+               <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  onClick={(e) => handleDeleteBookmark(bookmark.name, e)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+             </div>
+           ))}
+           
+           {bookmarks.length === 0 && (
+             <div className="text-center py-12 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
+               点击右上角 "+" 添加常用路径
+             </div>
+           )}
+         </div>
+      </ScrollArea>
+    </Card>
+  ), [bookmarks, selectedBookmark, path, fetchBookmarks, handleSelectBookmark, handleDeleteBookmark]);
+
+  return (
+    <div className="flex h-full gap-6 overflow-hidden px-1">
+      {/* Sidebar - Bookmarks */}
+      {memoizedSidebar}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full gap-4 overflow-hidden">
         {/* Top Bar with Input */}
-        <Card className="p-4 flex flex-col gap-4 shrink-0 border-0 shadow-none bg-transparent px-0">
-            <div className="flex gap-2">
+        <Card className="p-4 flex gap-4 items-center shrink-0 border-0 shadow-none bg-transparent px-0">
+            <div className="flex-1 flex gap-2">
             <Input 
                 placeholder="输入绝对路径 (例如 /Users/username/Photos)" 
                 value={path}
@@ -344,69 +383,53 @@ export default function LocalPreviewPage() {
             </Button>
             </div>
 
-            {/* Selection Toolbar */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Switch 
-                    id="selection-mode" 
-                    checked={selectionMode} 
-                    onCheckedChange={(checked) => {
-                      setSelectionMode(checked);
-                      if (!checked) setSelectedGroups(new Set());
-                    }} 
-                  />
-                  <Label htmlFor="selection-mode" className="cursor-pointer font-medium flex items-center gap-2">
-                    <MousePointer2 size={14} />
-                    开启多选
-                  </Label>
-                </div>
-
-                {selectionMode && (
-                  <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                    <Separator orientation="vertical" className="h-4 mx-1" />
-                    <span className="text-sm font-medium">
-                      已选中 <span className="text-primary">{selectedGroups.size}</span> 个项目
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={handleSelectAll} className="h-8 px-2 text-xs">
-                      全选
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleClearSelection} className="h-8 px-2 text-xs">
-                      取消
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {selectionMode && (
-                <Button 
-                  size="sm" 
-                  onClick={() => setIsExportBrowserOpen(true)} 
-                  disabled={selectedGroups.size === 0 || exporting}
-                  className="gap-2"
-                >
-                  {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                  导出到...
-                </Button>
-              )}
+            <div className="flex items-center gap-2 px-2 border-l pl-4">
+              <Switch 
+                id="selection-mode" 
+                checked={selectionMode} 
+                onCheckedChange={(checked) => {
+                  setSelectionMode(checked);
+                  if (!checked) setSelectedGroups(new Set());
+                }} 
+              />
+              <Label htmlFor="selection-mode" className="cursor-pointer font-medium text-sm whitespace-nowrap">
+                多选
+              </Label>
             </div>
         </Card>
 
+        {/* Floating Selection Toolbar */}
+        {selectionMode && (
+          <div className="flex items-center justify-between bg-accent/30 p-2 px-4 rounded-lg mb-2 animate-in fade-in slide-in-from-top-2 duration-200 border">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium">
+                已选中 <span className="text-primary">{selectedGroups.size}</span> 个项目
+              </span>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={handleSelectAll} className="h-7 px-2 text-xs">
+                  全选
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleClearSelection} className="h-7 px-2 text-xs">
+                  取消
+                </Button>
+              </div>
+            </div>
+
+            <Button 
+              size="sm" 
+              onClick={() => setIsExportBrowserOpen(true)} 
+              disabled={selectedGroups.size === 0 || exporting}
+              className="h-8 gap-2"
+            >
+              {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              导出到...
+            </Button>
+          </div>
+        )}
+
         {/* File Grid */}
         <div className="flex-1 overflow-y-auto min-h-0 bg-background/50 rounded-lg border p-4">
-            <MediaGrid 
-              files={files} 
-              onPreview={previewFile ? undefined : (file) => setPreviewFile(file as FileInfo)} 
-              selectionMode={selectionMode}
-              selectedIds={selectedGroups}
-              onToggleSelection={handleToggleSelection}
-              emptyMessage={
-                <div className="flex flex-col items-center justify-center opacity-50">
-                   <FolderOpen size={48} className="mb-4" />
-                   <p>选择左侧路径或在上方输入路径查看文件</p>
-                </div>
-              }
-            />
+            {memoizedMediaGrid}
         </div>
       </div>
 
@@ -455,7 +478,7 @@ export default function LocalPreviewPage() {
           onPrevious={hasPrevious ? handlePrevious : undefined}
           onNext={hasNext ? handleNext : undefined}
           footer={
-            <div className="text-sm text-zinc-400">
+            <div className="text-sm text-zinc-400 text-center mt-2">
                {new Date(previewFile.mtime).toLocaleString()} • {(previewFile.size / 1024 / 1024).toFixed(2)} MB
             </div>
           }
@@ -466,13 +489,7 @@ export default function LocalPreviewPage() {
           onClose={() => setPreviewFile(null)}
           onPrevious={hasPrevious ? handlePrevious : undefined}
           onNext={hasNext ? handleNext : undefined}
-          footer={
-             previewFile && (
-                <div className="text-center text-zinc-400 mt-2">
-                  {new Date(previewFile.mtime).toLocaleString()} • {(previewFile.size / 1024 / 1024).toFixed(2)} MB
-                </div>
-             )
-          }
+          footer={previewFooter}
         />
       )}
       {/* File Browser Dialog */}

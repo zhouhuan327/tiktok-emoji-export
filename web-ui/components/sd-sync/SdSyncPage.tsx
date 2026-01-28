@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { SyncFileList } from './SyncFileList';
 import { FilePreviewDialog } from './FilePreviewDialog';
 import { SyncFileRenameForm } from './SyncFileRenameForm';
@@ -88,6 +88,13 @@ export default function SdSyncPage() {
     if (!confirm(`确定要删除配置 "${name}" 吗？`)) return;
     await deleteDevice(name);
   }
+
+  const handlePreview = useCallback((file: { name: string; path: string }) => {
+    setPreviewFile(prev => {
+      if (prev) return prev;
+      return file;
+    });
+  }, []);
 
   return (
     <div className="flex h-full gap-6">
@@ -295,7 +302,7 @@ export default function SdSyncPage() {
                      files={scanResult.missingFiles}
                      sourcePath={scanResult.sourcePath}
                      totalSize={scanResult.totalMissingSize}
-                     onPreview={previewFile ? () => {} : setPreviewFile}
+                     onPreview={handlePreview}
                    />
                 ) : (
                    !syncing && !syncComplete && (
